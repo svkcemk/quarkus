@@ -40,26 +40,37 @@ public final class QuarkusUpdatesRepository {
             String recipeVersion, String currentVersion,
             String targetVersion, TopExtensionDependency topExtensionDependency) {
         final String gav = QUARKUS_RECIPE_GA + ":" + recipeVersion;
-        final String targetRecipe = topExtensionDependency.getArtifact().getArtifactId() + "/" + topExtensionDependency.getArtifact().getGroupId();
-
+        final String targetRecipeDirectory = topExtensionDependency.getArtifact().getArtifactId() + "/"
+                + topExtensionDependency.getArtifact().getGroupId();
+        final List<String> recipeDirectoryNames = List.of("core", targetRecipeDirectory);
         try {
             final Artifact artifact = artifactResolver.resolve(DependencyUtils.toArtifact(gav)).getArtifact();
             final ResourceLoader resourceLoader = ResourceLoaders.resolveFileResourceLoader(
                     artifact.getFile());
-            final List<String> recipes = resourceLoader.loadResourceAsPath(targetRecipe,
+            final List<String> recipes = resourceLoader.loadResourceAsPath("quarkus-updates",
                     path -> {
                         try (final Stream<Path> pathStream = Files.walk(path)) {
                             return pathStream
-                                    .filter(p -> p.getFileName().toString().matches("^\\d\\H+.ya?ml$"))
-                                    .filter(p -> shouldApplyRecipe(p.getFileName().toString(), currentVersion,
-                                            targetVersion))
-                                    .map(p -> {
-                                        try {
-                                            return new String(Files.readAllBytes(p));
+                                    .filter(p -> recipeDirectoryNames.contains(p.getFileName().toString()))
+                                    .flatMap(dir -> {
+                                        try (Stream<Path> recipePath = Files.walk(dir)) {
+                                            return recipePath
+                                                    .filter(p -> p.getFileName().toString().matches("^\\d\\H+.ya?ml$"))
+                                                    .filter(p -> shouldApplyRecipe(p.getFileName().toString(),
+                                                            currentVersion, targetVersion))
+                                                    .map(p -> {
+                                                        try {
+                                                            return new String(Files.readAllBytes(p));
+                                                        } catch (IOException e) {
+                                                            throw new RuntimeException("Error reading file: " + p, e);
+                                                        }
+                                                    });
                                         } catch (IOException e) {
-                                            throw new RuntimeException(e);
+                                            throw new RuntimeException("Error traversing directory: " + dir, e);
                                         }
                                     }).collect(Collectors.toList());
+                        } catch (IOException e) {
+                            throw new RuntimeException("Error traversing base directory", e);
                         }
                     });
             final Properties props = resourceLoader.loadResourceAsPath("quarkus-updates/", p -> {
