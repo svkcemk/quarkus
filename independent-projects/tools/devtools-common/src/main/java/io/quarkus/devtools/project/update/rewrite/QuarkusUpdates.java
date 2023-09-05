@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import io.quarkus.bootstrap.resolver.maven.MavenArtifactResolver;
 import io.quarkus.devtools.messagewriter.MessageWriter;
 import io.quarkus.devtools.project.BuildTool;
+import io.quarkus.devtools.project.state.TopExtensionDependency;
 import io.quarkus.devtools.project.update.ExtensionUpdateInfo;
 import io.quarkus.devtools.project.update.ProjectExtensionsUpdateInfo;
 import io.quarkus.devtools.project.update.rewrite.QuarkusUpdatesRepository.FetchResult;
@@ -22,19 +23,18 @@ public final class QuarkusUpdates {
     private QuarkusUpdates() {
     }
 
-    public static List<FetchResult> createRecipe(MessageWriter log, Path target, MavenArtifactResolver artifactResolver,
+    public static FetchResult createRecipe(MessageWriter log, Path target, MavenArtifactResolver artifactResolver,
             BuildTool buildTool, String updateRecipesVersion,
             ProjectUpdateRequest request)
             throws IOException {
-        List<ExtensionUpdateInfo> extensions = request.projectExtensionsUpdateInfo.getSimpleVersionUpdates();
-        List<FetchResult> results = extensions.stream()
-        .map(extension -> QuarkusUpdatesRepository.fetchRecipes(log, artifactResolver, buildTool,
+        List<TopExtensionDependency> TopExtensionDependencyList = request.projectExtensionsUpdateInfo
+                .getSimpleVersionUpdates().stream().map(extension -> extension.getCurrentDep())
+                .collect(Collectors.toList());
+        final FetchResult result = QuarkusUpdatesRepository.fetchRecipes(log, artifactResolver, buildTool,
                 updateRecipesVersion,
                 request.currentVersion,
                 request.targetVersion,
-                extension.getCurrentDep()))
-        .collect(Collectors.toList());
-
+                TopExtensionDependencyList);
         QuarkusUpdateRecipe recipe = new QuarkusUpdateRecipe()
                 .buildTool(request.buildTool);
         if (request.updateJavaVersion.isPresent()) {
@@ -69,13 +69,12 @@ public final class QuarkusUpdates {
                     versionUpdates.getRecommendedDependency().getVersion()));
         }
 
-        results.stream()
-                .flatMap(result -> result.getRecipes().stream())
-                .map(QuarkusUpdateRecipeIO::readRecipesYaml)
-                .forEach(recipe::addRecipes);
+        for (String s : result.getRecipes()) {
+            recipe.addRecipes(QuarkusUpdateRecipeIO.readRecipesYaml(s));
+        }
 
         QuarkusUpdateRecipeIO.write(target, recipe);
-        return results;
+        return result;
     }
 
     public static class ProjectUpdateRequest {

@@ -102,12 +102,11 @@ public class UpdateProjectCommandHandler implements QuarkusCommandHandler {
                     final String updateRecipesVersion = invocation.getValue(
                             UpdateProject.REWRITE_UPDATE_RECIPES_VERSION,
                             QuarkusUpdatesRepository.DEFAULT_UPDATE_RECIPES_VERSION);
-                    final List<FetchResult> fetchResults = QuarkusUpdates.createRecipe(invocation.log(),
+                    final FetchResult fetchResult = QuarkusUpdates.createRecipe(invocation.log(),
                             recipe,
                             QuarkusProjectHelper.artifactResolver(), buildTool, updateRecipesVersion, request);
                     invocation.log().info("OpenRewrite recipe generated: %s", recipe);
 
-                    for (FetchResult fetchResult : fetchResults) {
                         String rewritePluginVersion = invocation.getValue(UpdateProject.REWRITE_PLUGIN_VERSION,
                                 fetchResult.getRewritePluginVersion());
                         boolean rewriteDryRun = invocation.getValue(UpdateProject.REWRITE_DRY_RUN, false);
@@ -122,7 +121,7 @@ public class UpdateProjectCommandHandler implements QuarkusCommandHandler {
                                 recipe,
                                 rewriteDryRun);
 
-                    }
+                    
 
                 } catch (IOException e) {
                     throw new QuarkusCommandException("Error while generating the project update script", e);
