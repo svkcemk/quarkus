@@ -27,9 +27,8 @@ public final class QuarkusUpdates {
             BuildTool buildTool, String updateRecipesVersion,
             ProjectUpdateRequest request)
             throws IOException {
-        List<TopExtensionDependency> TopExtensionDependencyList = request.projectExtensionsUpdateInfo
-                .getSimpleVersionUpdates().stream().map(extension -> extension.getCurrentDep())
-                .collect(Collectors.toList());
+        List<ExtensionUpdateInfo> TopExtensionDependencyList = request.projectExtensionsUpdateInfo
+                .getSimpleVersionUpdates();
         final FetchResult result = QuarkusUpdatesRepository.fetchRecipes(log, artifactResolver, buildTool,
                 updateRecipesVersion,
                 request.currentVersion,
